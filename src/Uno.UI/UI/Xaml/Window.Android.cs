@@ -1,4 +1,5 @@
 #if XAMARIN_ANDROID
+using System;
 using Android.App;
 using Android.Util;
 using Android.Views;
@@ -24,6 +25,23 @@ namespace Windows.UI.Xaml
 			Dispatcher = CoreDispatcher.Main;
 			CoreWindow = new CoreWindow();
 			InitializeCommon();
+		}
+
+		public WindowInsets LocalWindowInsets { get; set; }
+
+		public Thickness WindowInsets
+		{
+			get
+			{
+				return LocalWindowInsets != null
+				? new Thickness(
+					ViewHelper.PhysicalToLogicalPixels(LocalWindowInsets.SystemWindowInsetLeft),
+					ViewHelper.PhysicalToLogicalPixels(LocalWindowInsets.SystemWindowInsetTop),
+					ViewHelper.PhysicalToLogicalPixels(LocalWindowInsets.SystemWindowInsetRight),
+					ViewHelper.PhysicalToLogicalPixels(LocalWindowInsets.SystemWindowInsetBottom)
+				)
+				: Thickness.Empty;
+			}
 		}
 
 		internal int SystemUiVisibility { get; set; }
@@ -53,6 +71,9 @@ namespace Windows.UI.Xaml
 			}
 
 			_rootBorder.Child = _content = value;
+#if __ANDROID_28__
+			_main.SetOnApplyWindowInsetsListener(new WindowInsetsListener());
+#endif
 		}
 
 		private UIElement InternalGetContent()
@@ -86,11 +107,14 @@ namespace Windows.UI.Xaml
 			var statusBarHeightExcluded = GetLogicalStatusBarHeightExcluded();
 			var navigationBarHeightExcluded = GetLogicalNavigationBarHeightExcluded();
 
+			var topHeightExcluded = Math.Max(WindowInsets.Top, statusBarHeightExcluded);
+			var bottomHeightExcluded = Math.Max(WindowInsets.Bottom, navigationBarHeightExcluded);
+
 			var newVisibleBounds = new Rect(
-				x: newBounds.X,
-				y: newBounds.Y + statusBarHeightExcluded,
-				width: newBounds.Width,
-				height: newBounds.Height - statusBarHeightExcluded - navigationBarHeightExcluded
+				x: newBounds.X - WindowInsets.Left,
+				y: newBounds.Y + topHeightExcluded,
+				width: newBounds.Width - (WindowInsets.Left + WindowInsets.Right),
+				height: newBounds.Height - topHeightExcluded - bottomHeightExcluded
 			);
 
 			ApplicationView.GetForCurrentView()?.SetVisibleBounds(newVisibleBounds);
